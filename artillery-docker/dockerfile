@@ -1,0 +1,37 @@
+# escape=`
+
+FROM python:3.6-windowsservercore AS python
+
+SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue'; "]
+
+ENV PYTHON_VERSION 3.6.1
+ENV PYTHON_PIP_VERSION 9.0.1
+
+#Get Artillery
+RUN mkdir artillery ; `
+    cd artillery ; `
+    pwd ; `
+    dir ;
+RUN [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 ; `
+    Invoke-WebRequest 'https://github.com/BinaryDefense/artillery/archive/master.zip' -OutFile artillery.zip -UseBasicParsing ; `
+	dir ; `
+	Expand-Archive artillery.zip
+
+#Setup Python and Pip
+RUN $env:PATH = 'C:\Python;C:\Python\Scripts;{0}' -f $env:PATH ; `
+    pip install pypiwin32 ;
+
+#Fake the Windows installation for Artillery
+#Need to come back and fix this
+RUN mkdir 'C:\Program Files (x86)\Artillery\' ; `
+    copy-item -Recurse C:\artillery\artillery-master\* 'C:\Program Files (x86)\Artillery\' ; `
+    mkdir 'C:\Program Files (x86)\Artillery\logs' ; `
+    mkdir 'C:\Program Files (x86)\Artillery\database' ; `
+    mkdir 'C:\Program Files (x86)\Artillery\src\program_junk' ;
+
+#Set configs 
+#NOT working but container still runs
+RUN $newContent = Get-Content 'C:\Program Files (x86)\Artillery\config' | % {$_ -replace 'SSH_DEFAULT_PORT_CHECK="ON"','SSH_DEFAULT_PORT_CHECK="OFF"' -replace 'SSH_BRUTE_MONITOR="ON"','SSH_BRUTE_MONITOR="OFF"' -replace 'MONITOR="ON"','MONITOR="OFF"' -replace 'THREAT_INTELLIGENCE_FEED="ON"','THREAT_INTELLIGENCE_FEED="OFF"' -replace 'SYSLOG_TYPE="LOCAL"','SYSLOG_TYPE="REMOTE"' -replace 'SYSLOG_REMOTE_HOST="192.168.0.1"','SYSLOG_REMOTE_HOST="172.31.5.9"' } ; `
+    $newContent | Set-Content 'C:\Program Files (x86)\Artillery\config' ;
+
+EXPOSE 21 22 23 25 80 110 137 16993 5800 8080 10000 1337 1433 1521 1723 44443
